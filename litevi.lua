@@ -106,6 +106,10 @@ command.add(is_real_docview, {
 })
 
 command.add(is_command_mode, {
+  ["modalediting:missing-command"] = function()
+    -- beep? prompt with help?
+  end,
+
   ["modalediting:switch-to-insert-mode"] = function()
     mode = "insert"
   end,
@@ -214,10 +218,9 @@ command.add(is_command_mode, {
 
   ["modalediting:paste"] = function()
     local line, col = doc():get_selection()
-    local indent = doc().lines[line]:match("^[\t ]*")
     doc():insert(line, math.huge, "\n")
     doc():set_selection(line + 1, math.huge)
-    doc():text_input(indent .. system.get_clipboard():gsub("\r", ""))
+    doc():text_input(system.get_clipboard():gsub("\r", ""))
   end,
 
   ["modalediting:copy"] = function()
@@ -289,19 +292,20 @@ add_wrapped({
   "doc:move-to-next-line",
   "doc:move-to-previous-char",
   "doc:move-to-next-char",
-  "doc:move-to-next-word-boundary",
-  "doc:move-to-previous-word-boundary",
+  "doc:move-to-next-word-end",
+  "doc:move-to-previous-word-start",
   "doc:move-to-start-of-line",
   "doc:move-to-previous-start-of-block",
   "doc:move-to-next-start-of-block",
   "doc:move-to-previous-page",
   "doc:move-to-next-page",
+  "doc:move-to-end-of-doc",
   "doc:select-to-previous-line",
   "doc:select-to-next-line",
   "doc:select-to-previous-char",
   "doc:select-to-next-char",
-  "doc:select-to-next-word-boundary",
-  "doc:select-to-previous-word-boundary",
+  "doc:select-to-next-word-end",
+  "doc:select-to-previous-word-start",
   "doc:select-to-start-of-line",
   "doc:select-to-previous-start-of-block",
   "doc:select-to-next-start-of-block",
@@ -311,9 +315,27 @@ add_wrapped({
   "doc:unindent",
 })
 
+-- This function exists so we can fill in the other normal text input commands with
+-- 'command not found'. If we don't do this, then these printables will appear as normal
+-- input.
+local function modal_keymap_addall(map)
+  for i = 0x20, 0xFF do
+    local c = string.char(i)
+    if string.match(c, '%g') then
+      if string.match(c, '%u') then
+        c = 'shift+' .. string.lower(c)
+      end
+      if map[c] == nil then
+        keymap.add { [c] = "modalediting:missing-command" }
+      end
+    end
+  end
 
--- TODO add no-ops so surprising keys don't pass through
-keymap.add {
+  keymap.add(map)
+end
+
+
+modal_keymap_addall {
   ["/"] = "modalediting:find-replace:find",
   ["r"] = "modalediting:find-replace:replace",
   ["n"] = "modalediting:find-replace:repeat-find",
@@ -325,10 +347,11 @@ keymap.add {
   ["h"] = "modalediting:doc:move-to-previous-char",
   ["backspace"] = "modalediting:doc:move-to-previous-char",
   ["l"] = "modalediting:doc:move-to-next-char",
-  ["w"] = "modalediting:doc:move-to-next-word-boundary",
-  ["b"] = "modalediting:doc:move-to-previous-word-boundary",
+  ["w"] = "modalediting:doc:move-to-next-word-end",
+  ["b"] = "modalediting:doc:move-to-previous-word-start",
   ["0"] = "modalediting:doc:move-to-start-of-line",
   ["shift+4"] = "modalediting:end-of-line",
+  ["shift+g"] = "modalediting:doc:move-to-end-of-doc",
   ["["] = "modalediting:doc:move-to-previous-start-of-block",
   ["]"] = "modalediting:doc:move-to-next-start-of-block",
   ["ctrl+u"] = "modalediting:doc:move-to-previous-page",
@@ -340,8 +363,8 @@ keymap.add {
   ["shift+h"] = "modalediting:doc:select-to-previous-char",
   ["shift+backspace"] = "modalediting:doc:select-to-previous-char",
   ["shift+l"] = "modalediting:doc:select-to-next-char",
-  ["shift+w"] = "modalediting:doc:select-to-next-word-boundary",
-  ["shift+b"] = "modalediting:doc:select-to-previous-word-boundary",
+  ["shift+w"] = "modalediting:doc:select-to-next-word-end",
+  ["shift+b"] = "modalediting:doc:select-to-previous-word-start",
   ["shift+0"] = "modalediting:doc:select-to-start-of-line",
   ["shift+["] = "modalediting:doc:select-to-previous-start-of-block",
   ["shift+]"] = "modalediting:doc:select-to-next-start-of-block",
